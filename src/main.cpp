@@ -117,7 +117,7 @@ public:
 //======= TFT ===================================================================================== 
 #include "TimesNRCyr8.h"
 #include "TimesNRCyr16.h"
-#define TNR20 &TimesNRCyr16pt8b
+#define TNR16 &TimesNRCyr16pt8b
 #define TNR8 &TimesNRCyr8pt8b
 TFT_eSPI tft = TFT_eSPI();       // Invoke custom library
 TFT_eSprite sprite = TFT_eSprite(&tft); // Sprite объект для начальной заставки
@@ -150,8 +150,10 @@ uint32_t servo_time_work = 1000; //  Время задержки перед вк
 //  После окончания налива выключается светомозыка и индикатор наполнености рюмок светится красным 
 //  Проверяет , если рюмку не убирали , то налива не происходит 
 void naliv() {
+  //tft.setAttribute(UTF8_SWITCH, false);
+  tft.setFreeFont(TNR16);
   tft.fillScreen(TFT_BLACK);  // Заливает экран черным цветом (очищаем)
-  tft.setTextSize(2);
+  //tft.setTextSize(2);
   tft.drawString("Наливаем по 50 мл", 30, 20); 
   tft.drawString("в  -ю рюмку        %", 30, 50); 
   for (int i = 0; i < NUM_PIXELS; i++) {     // Перебираем все рюмки
@@ -383,7 +385,7 @@ void StartScreen() {
   int x = 10, y = 0; 
   sprite.setColorDepth(8);  // 8-bit цвет для спрайта
   sprite.setAttribute(UTF8_SWITCH, false);
-  sprite.setFreeFont(TNR20);
+  sprite.setFreeFont(TNR16);
   sprite.setTextColor(TFT_LIGHT_BLUE, TFT_BLACK);  // Adding a background colour erases previous text automatically
   //sprite.setTextSize(1);
   sprite.createSprite(270, 80);
@@ -438,33 +440,19 @@ void setup(void) {
   pinMode(BUSY_PIN, INPUT);   // настроем пин готовности DF плеера в качестве входного вывода
   dfmp3.begin();
   delay(10);
-  dfmp3.reset();  // сброс DF плеера
+  //dfmp3.reset();  // сброс DF плеера
   
-  uint16_t version = dfmp3.getSoftwareVersion();
-  Serial.print("version ");
-  Serial.println(version);
+  // uint16_t version = dfmp3.getSoftwareVersion();
+  // Serial.print("version ");
+  // Serial.println(version);
 
-  uint16_t volume = dfmp3.getVolume();
-  // Serial.print("volume ");
-  // Serial.println(volume);
+  //uint16_t volume = dfmp3.getVolume();
+
   dfmp3.setVolume(24);
   
-  uint16_t count = dfmp3.getTotalTrackCount(DfMp3_PlaySource_Sd);
-  // Serial.print("files ");
-  // Serial.println(count);
-  
-  // Serial.println("starting...");
-
-  // start the first track playing
+  //uint16_t count = dfmp3.getTotalTrackCount(DfMp3_PlaySource_Sd);
+ 
   dfmp3.playMp3FolderTrack(1);  // sd:/mp3/0001.mp3
-  // myMP3.begin(9600, PLAYER_SERIAL_TIMEOUT);  // скорость порта, таймаут порта мс.
-  // delay(1000);
-  // myMP3.setEq(DfMp3_Eq_Normal);
-  // delay(100);                                  //Между двумя командами необходимо делать задержку 100 миллисекунд, в противном случае некоторые команды могут работать не стабильно.
-  // myMP3.setVolume(20);
-  // delay(100);
-  // myMP3.playFolderTrack(1, 1);
-  // delay(100);
 
   //===== Семафоры ================================================================================
   CvetoMuzikSemaphore = xSemaphoreCreateBinary();
