@@ -1,0 +1,24 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"path": "C:/Users/79054/Documents/PlatformIO/Projects/Nalivator"
+		},
+		{
+			"path": "C:/Users/79054/Desktop/Наливатор Алиса/NalivatorEsp"
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"*.tcc": "cpp",
+			"deque": "cpp",
+			"string": "cpp",
+			"unordered_map": "cpp",
+			"unordered_set": "cpp",
+			"vector": "cpp",
+			"system_error": "cpp"
+		}
+	}
+}
