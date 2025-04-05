@@ -3,7 +3,9 @@
 #include <ezButton.h>               //  Библиотека для использования SW  пина энкодера
 #include "ESP32Encoder.h"           //  Библиотека энкодера
 #include "esp_task_wdt.h"
-#include <DFMiniMp3.h>            //  Библиотека работы с мелодиями dfplayer
+//#include <DFMiniMp3.h>            //  Библиотека работы с мелодиями dfplayer
+#include "playerMP3.h"               //  Библиотека работы с мелодиями playerMP3.h
+//#include "DFRobotDFPlayerMini.h"    //  Библиотека работы с мелодиями DFRobotDFPlayerMini
 #include <Adafruit_NeoPixel.h>      //  Библиотека адресной ленты
 //#include "ESP32Servo.h"             //  Библиотека работы с сервомотором
 #include <ServoSmooth.h>            //  Библиотека работы с сервомотором
@@ -25,7 +27,7 @@ TaskHandle_t Task2; // Задача работы с опросом кнопок 
 TaskHandle_t Task3; // Задача работы с адресной лентой
 
 //======= Семафоры ================================================================================
-SemaphoreHandle_t CvetoMuzikSemaphore = NULL; // Семафор для задачи CvetoMuzik  
+//SemaphoreHandle_t CvetoMuzikSemaphore = NULL; // Семафор для задачи CvetoMuzik  
 
 //======= Адресная лента ==========================================================================
 #define PIN_WS2812B	13  //  Пин подключения адресной ленты
@@ -45,74 +47,9 @@ ServoSmooth myservo;
 const uint8_t Pos[] = {15, 45, 87, 133, 144, 177, 0};  //  массив,в котором хранятся позиции сервы, в последней переменной хранится позиция парковки
 
 //======= Плейер ==================================================================================
-// #define PLAYER_SERIAL_TIMEOUT 1500  //таймаут(мс) ожидания данных с сериал порта плеера, если не верно читает количество треков или глюки, пробуем увеличивать сразу до 2000 мс
-// #define PLAYER_MH2024K_24SS  // тормозной плеер, PLAYER_SERIAL_TIMEOUT увеличиваем до 1500, вводятся задержки для нормальной работы плеера, в работе наливатора будут некоторые затупы
-// DFMiniMp3<HardwareSerial, Mp3ChipOriginal> myMP3(Serial2);
-// forward declare the notify class, just the name
-class Mp3Notify;
-// define a handy type using serial and our notify class
-typedef DFMiniMp3<HardwareSerial, Mp3Notify> DfMp3;
-// instance a DfMp3 object, 
-DfMp3 dfmp3(Serial2);
 #define BUSY_PIN 34 //  пин готовности DF плеера высокий уровень когда играет песня, и низкий когда не играет, не подключать на gpio12!!  
 #define RXD2 16
 #define TXD2 17
-class Mp3Notify
-{
-public:
-  static void PrintlnSourceAction(DfMp3_PlaySources source, const char* action)
-  {
-    if (source & DfMp3_PlaySources_Sd) 
-    {
-        Serial.print("SD Card, ");
-    }
-    if (source & DfMp3_PlaySources_Usb) 
-    {
-        Serial.print("USB Disk, ");
-    }
-    if (source & DfMp3_PlaySources_Flash) 
-    {
-        Serial.print("Flash, ");
-    }
-    Serial.println(action);
-  }
-  static void OnError([[maybe_unused]] DfMp3& mp3, uint16_t errorCode)
-  {
-    // see DfMp3_Error for code meaning
-    Serial.println();
-    Serial.print("Com Error ");
-    Serial.println(errorCode);
-  }
-  static void OnPlayFinished([[maybe_unused]] DfMp3& mp3, [[maybe_unused]] DfMp3_PlaySources source, uint16_t track)
-  {
-    Serial.print("Play finished for #");
-    Serial.println(track);  
-
-    // start next track
-    track += 1;
-    // this example will just start back over with 1 after track 3
-    if (track > 3) 
-    {
-      track = 1;
-    }
-    dfmp3.playMp3FolderTrack(track);  // sd:/mp3/0001.mp3, sd:/mp3/0002.mp3, sd:/mp3/0003.mp3
-  }
-  static void OnPlaySourceOnline([[maybe_unused]] DfMp3& mp3, DfMp3_PlaySources source)
-  {
-    PrintlnSourceAction(source, "online");
-  }
-  static void OnPlaySourceInserted([[maybe_unused]] DfMp3& mp3, DfMp3_PlaySources source)
-  {
-    PrintlnSourceAction(source, "inserted");
-  }
-  static void OnPlaySourceRemoved([[maybe_unused]] DfMp3& mp3, DfMp3_PlaySources source)
-  {
-    PrintlnSourceAction(source, "removed");
-  }
-};
-
-
-
 
 //======= TFT ===================================================================================== 
 #include "TimesNRCyr8.h"
@@ -153,7 +90,6 @@ void naliv() {
   //tft.setAttribute(UTF8_SWITCH, false);
   tft.setFreeFont(TNR16);
   tft.fillScreen(TFT_BLACK);  // Заливает экран черным цветом (очищаем)
-  //tft.setTextSize(2);
   tft.drawString("Наливаем по 50 мл", 30, 20); 
   tft.drawString("в  -ю рюмку        %", 30, 50); 
   for (int i = 0; i < NUM_PIXELS; i++) {     // Перебираем все рюмки
@@ -212,23 +148,26 @@ void naliv() {
 // и выводит на экран индикатор уровеня громкости 
 void volum_level_new( bool step){
   //Получаем уровень громкости из плеера, хотя лучше использовать статическую переменную
-  tft.fillScreen(TFT_BLACK);  // Заливает экран выбранным цветом
+  //tft.fillScreen(TFT_BLACK);  // Заливает экран выбранным цветом
+  tft.setFreeFont(TNR16);
   int i=0;
-  //int volume=0;
-  int volume  = dfmp3.getVolume();  // Получаем уровень громкости
-  for ( int i = 0; i = volume; i++){
+  int volume=0;
+  volume  = getVolume();  // Получаем уровень громкости
+  for ( int i = 0; i <= volume; i++){
+    Serial.print(" шаг цикла № " );
+    Serial.println(i,DEC);
     tft.drawSmoothRoundRect((10*i)+1, 160-(3*i), 3, 0, 3, (3*i)+3, TFT_LIGHT_BLUE, TFT_LIGHT_BLUE);
-  }
-  
+  }  
   if (step)  {
-    if (volume< 30) ++volume;
-    tft.drawSmoothRoundRect((10*volume)+1, 160-(3*volume), 3, 0, 3, (3*volume)+3, TFT_LIGHT_BLUE, TFT_LIGHT_BLUE);  
-    // Рисуем новую индикаторную палочку громкости
-    //dfmp3.increaseVolume();  //  Увеличивавем громкость динамика 
-    Serial.println(volume);
-    //delay(1000);
+    if (volume< 30) {
+      ++volume;
+      volumeUp();  //  Увеличивавем громкость динамика 
+      tft.drawSmoothRoundRect((10*volume)+1, 160-(3*volume), 3, 0, 3, (3*volume)+3, TFT_LIGHT_BLUE, TFT_LIGHT_BLUE);   // Рисуем новую индикаторную палочку громкости
+      Serial.println(volume);
+    }
   }
   else if (volume>0) {
+    volumeDown();
     // Затираем последнюю индикаторную палочку громкости
     tft.drawSmoothRoundRect((10*volume)+1, 160-(3*volume), 3, 0, 3, (3*volume)+3, TFT_BLACK, TFT_BLACK);
     --volume;
@@ -237,7 +176,7 @@ void volum_level_new( bool step){
     //delay(3000);
   }
 
-  tft.setTextSize(2);
+  //tft.setTextSize(2);
   tft.drawString("Громкость", 30, 180); 
   // рисовать прямоугольник который затирает старое значение
   tft.fillRect(240, 180, 50, 30, TFT_BLACK);
@@ -290,9 +229,6 @@ int opros_encoder(){
 
 //======= Функция светомозыки =====================================================================
 void CvetoMuzik() {
-//  int j=0;
-//   while (j<10){   // Времннно!!!!!!!!!!!!!!!!!!!!!!! вернуть нижнюю строчку
-//   j++;
   while (!digitalRead(BUSY_PIN)){   // Пока проигрывает музыка выполняем 
   // Rainbow cycle along whole ws2812b. Pass delay time (in ms) between frames.
   // Hue of first pixel runs 3 complete loops through the color wheel.
@@ -369,12 +305,11 @@ void Task2code( void * pvParameters ){
   vTaskDelete(NULL);  // Удалить запущенную задачу
 }
 
-// Task3code: Вызывает функцию CvetoMuzik() каждый раз, когда
-//           проходит 10 мс.
+// Task3code: Вызывает функцию CvetoMuzik() когда проигрывается музыка. При этом задача выполняется в бесконечном цикле
 //  Если в задаче больше нет надобности, нужно явно удалить запущенную задачу с помощью vTaskDelete(NULL);.
 void Task3code( void * pvParameters ){ 
   for(;;){
-    //CvetoMuzik();
+   // CvetoMuzik();
     delay(10);
   }
   vTaskDelete(NULL); // Удалить запущенную задачу
@@ -435,27 +370,15 @@ void setup(void) {
   pinMode(SW_pins[4], INPUT);  // настроем пины 5 рюмки в качестве входного вывода    
 
   //========Плейер=================================================================================
-  //pinMode(BUSY_PIN, INPUT_PULLUP);
   Serial2.begin(9600, SERIAL_8N1, RXD2, TXD2);
   pinMode(BUSY_PIN, INPUT);   // настроем пин готовности DF плеера в качестве входного вывода
-  dfmp3.begin();
-  delay(10);
-  //dfmp3.reset();  // сброс DF плеера
-  
-  // uint16_t version = dfmp3.getSoftwareVersion();
-  // Serial.print("version ");
-  // Serial.println(version);
-
-  //uint16_t volume = dfmp3.getVolume();
-
-  dfmp3.setVolume(24);
-  
-  //uint16_t count = dfmp3.getTotalTrackCount(DfMp3_PlaySource_Sd);
+  delay(350);//Задержка инициализации
+  setVolume(13);
+  playMp3Folder(1);
  
-  dfmp3.playMp3FolderTrack(1);  // sd:/mp3/0001.mp3
 
   //===== Семафоры ================================================================================
-  CvetoMuzikSemaphore = xSemaphoreCreateBinary();
+  //CvetoMuzikSemaphore = xSemaphoreCreateBinary();
 
   //===== Задачи ==================================================================================
   //создаем задачу, которая будет выполняться на ядре 1 с максимальным приоритетом (1)
@@ -480,40 +403,40 @@ void setup(void) {
     0);          /* Указываем номер ядра для данной задачи */ 
 
 //Создаем задачу, которая будет выполняться на ядре 1 с наивысшим приоритетом (1)
-  xTaskCreatePinnedToCore(
+   xTaskCreatePinnedToCore(
     Task3code,   /* Функция задачи. */
     "Task3",     /* Имя задачи. */
     10000,       /* Размер стека */
     NULL,        /* Параметры задачи */
-    1,           /* Приоритет */
+    20,           /* Приоритет */
     &Task3,      /* Дескриптор задачи для отслеживания */
     1);          /* Указываем номер ядра для данной задачи */   
-  
   StartScreen();
  }
- 
- void loop() {
-   // желаемая позиция задаётся методом setTarget (импульс) или setTargetDeg (угол), далее
-  // при вызове tick() производится автоматическое движение сервы
-  // с заданным ускорением и ограничением скорости
-  myservo.tick();   // здесь происходит движение серво по встроенному таймеру!
+
+
+void loop(){
+  // // желаемая позиция задаётся методом setTarget (импульс) или setTargetDeg (угол), далее
+  // // при вызове tick() производится автоматическое движение сервы
+  // // с заданным ускорением и ограничением скорости
+  // // myservo.tick();   // здесь происходит движение серво по встроенному таймеру!
   int i = opros_encoder();  // опрос энкодера
 
-switch (i) {
-    case 1:
+  switch (i) {
+    case 1:{
       // выполнить, если значение == 1 Это короткое нажатие на энкодер
-      //tft.drawString("Это короткое нажатие на энкодер", 0, 0);    
+      tft.drawString("Это короткое нажатие на энкодер", 0, 0);    
       //dfmp3.playFolderTrack16(5, 1);  
       //Serial.println("Нажата кнопка");
       //myservo.setTargetDeg(Pos[1]);
       //myservo.write(Pos[1]);  
      // myservo.tick();   // здесь происходит движение серво по встроенному таймеру!
       naliv();
-
+    } 
     break;
     case 2:
       // выполнить, если значение == 2 Это длинное нажатие на энкодер
-      //tft.drawString("Это длинное нажатие на энкодер", 0, 0); 
+      tft.drawString("Это длинное нажатие на энкодер", 0, 0); 
       //myservo.setTargetDeg(Pos[2]);
       //myservo.write(Pos[2]); 
       //menuEnter(0);  //  Переход в меню
@@ -521,22 +444,19 @@ switch (i) {
     break;
     case 3:
       // выполнить, если значение == 3 Это поворот вправо
-      //tft.drawString("Это поворот вправо", 0, 0);
+      tft.drawString("Это поворот вправо", 0, 0);
       //myservo.setTargetDeg(Pos[0]);
       //myservo.write(Pos[0]);  
       volum_level_new(1);
     break;
     case 4:
       // выполнить, если значение == 4 Это поворот влево
-      //tft.drawString("Это поворот влево", 0, 0);
+      tft.drawString("Это поворот влево", 0, 0);
       //myservo.setTargetDeg(Pos[5]);
       //myservo.write(Pos[5]);  
       volum_level_new(0);
     break;
   }
-
- }
- 
-
+}
 
  
